@@ -42,14 +42,15 @@
 
 #include "estimator_kalman.h"
 
-#define NBR_OF_RANGES_IN_PACKET   5
+#define NBR_OF_RANGES_IN_PACKET 5
 #define DEFAULT_EMERGENCY_STOP_TIMEOUT (1 * RATE_MAIN_LOOP)
 
 typedef enum
 {
-  EXT_POSITION        = 0,
-  GENERIC_TYPE        = 1,
+  EXT_POSITION = 0,
+  GENERIC_TYPE = 1,
   EXT_POSITION_PACKED = 2,
+  EXT_POSITION_YAW = 3,
 } locsrvChannels_t;
 
 typedef struct
@@ -63,11 +64,12 @@ typedef struct
 } __attribute__((packed)) rangePacket;
 
 // up to 4 items per CRTP packet
-typedef struct {
+typedef struct
+{
   uint8_t id; // last 8 bit of the Crazyflie address
-  int16_t x; // mm
-  int16_t y; // mm
-  int16_t z; // mm
+  int16_t x;  // mm
+  int16_t y;  // mm
+  int16_t z;  // mm
 } __attribute__((packed)) extPositionPackedItem;
 
 /**
@@ -76,8 +78,10 @@ typedef struct {
 typedef struct
 {
   struct CrtpExtPosition targetVal[2];
+  float yaw;
   bool activeSide;
   uint32_t timestamp; // FreeRTOS ticks
+  uint32_t yaw_timestamp;
 } ExtPositionCache;
 
 // Struct for logging position information
@@ -89,14 +93,16 @@ static bool enableRangeStreamFloat = false;
 static bool isInit = false;
 static uint8_t my_id;
 
-static void locSrvCrtpCB(CRTPPacket* pk);
-static void extPositionHandler(CRTPPacket* pk);
-static void genericLocHandle(CRTPPacket* pk);
-static void extPositionPackedHandler(CRTPPacket* pk);
+static void locSrvCrtpCB(CRTPPacket *pk);
+static void extPositionHandler(CRTPPacket *pk);
+static void genericLocHandle(CRTPPacket *pk);
+static void extPositionPackedHandler(CRTPPacket *pk);
+static void extPositionYawHandler(CRTPPacket *pk);
 
 void locSrvInit()
 {
-  if (isInit) {
+  if (isInit)
+  {
     return;
   }
 
@@ -107,55 +113,74 @@ void locSrvInit()
   isInit = true;
 }
 
-static void locSrvCrtpCB(CRTPPacket* pk)
+static void locSrvCrtpCB(CRTPPacket *pk)
 {
   switch (pk->channel)
   {
-    case EXT_POSITION:
-      extPositionHandler(pk);
-      break;
-    case GENERIC_TYPE:
-      genericLocHandle(pk);
-    case EXT_POSITION_PACKED:
-      extPositionPackedHandler(pk);
-    default:
-      break;
+  case EXT_POSITION:
+    extPositionHandler(pk);
+    break;
+  case GENERIC_TYPE:
+    genericLocHandle(pk);
+  case EXT_POSITION_PACKED:
+    extPositionPackedHandler(pk);
+  case EXT_POSITION_YAW:
+    extPositionYawHandler(pk);
+  default:
+    break;
   }
 }
 
-static void extPositionHandler(CRTPPacket* pk)
+static void extPositionHandler(CRTPPacket *pk)
 {
-  crtpExtPosCache.targetVal[!crtpExtPosCache.activeSide] = *((struct CrtpExtPosition*)pk->data);
+  crtpExtPosCache.targetVal[!crtpExtPosCache.activeSide] = *((struct CrtpExtPosition *)pk->data);
   crtpExtPosCache.activeSide = !crtpExtPosCache.activeSide;
   crtpExtPosCache.timestamp = xTaskGetTickCount();
 }
 
-static void genericLocHandle(CRTPPacket* pk)
+static void extPositionYawHandler(CRTPPacket *pk)
+{
+  crtpExtPosCache.targetVal[!crtpExtPosCache.activeSide] = ((struct CrtpExtPositionYaw *)pk->data)->position;
+  crtpExtPosCache.activeSide = !crtpExtPosCache.activeSide;
+  crtpExtPosCache.timestamp = xTaskGetTickCount();
+  crtpExtPosCache.yaw = ((struct CrtpExtPositionYaw *)pk->data)->yaw;
+  crtpExtPosCache.yaw_timestamp = xTaskGetTickCount();
+}
+
+static void genericLocHandle(CRTPPacket *pk)
 {
   uint8_t type = pk->data[0];
-  if (pk->size < 1) return;
+  if (pk->size < 1)
+    return;
 
-  if (type == LPS_SHORT_LPP_PACKET && pk->size >= 2) {
-    bool success = lpsSendLppShort(pk->data[1], &pk->data[2], pk->size-2);
+  if (type == LPS_SHORT_LPP_PACKET && pk->size >= 2)
+  {
+    bool success = lpsSendLppShort(pk->data[1], &pk->data[2], pk->size - 2);
 
     pk->port = CRTP_PORT_LOCALIZATION;
     pk->channel = GENERIC_TYPE;
     pk->size = 3;
-    pk->data[2] = success?1:0;
+    pk->data[2] = success ? 1 : 0;
     crtpSendPacket(pk);
-  } else if (type == EMERGENCY_STOP) {
+  }
+  else if (type == EMERGENCY_STOP)
+  {
     stabilizerSetEmergencyStop();
-  } else if (type == EMERGENCY_STOP_WATCHDOG) {
+  }
+  else if (type == EMERGENCY_STOP_WATCHDOG)
+  {
     stabilizerSetEmergencyStopTimeout(DEFAULT_EMERGENCY_STOP_TIMEOUT);
   }
 }
 
-static void extPositionPackedHandler(CRTPPacket* pk)
+static void extPositionPackedHandler(CRTPPacket *pk)
 {
   uint8_t numItems = pk->size / sizeof(extPositionPackedItem);
-  for (uint8_t i = 0; i < numItems; ++i) {
-    const extPositionPackedItem* item = (const extPositionPackedItem*)&pk->data[i * sizeof(extPositionPackedItem)];
-    if (item->id == my_id) {
+  for (uint8_t i = 0; i < numItems; ++i)
+  {
+    const extPositionPackedItem *item = (const extPositionPackedItem *)&pk->data[i * sizeof(extPositionPackedItem)];
+    if (item->id == my_id)
+    {
       struct CrtpExtPosition position;
       position.x = item->x / 1000.0f;
       position.y = item->y / 1000.0f;
@@ -173,7 +198,8 @@ static void extPositionPackedHandler(CRTPPacket* pk)
 bool getExtPosition(state_t *state)
 {
   // Only use position information if it's valid and recent
-  if ((xTaskGetTickCount() - crtpExtPosCache.timestamp) < M2T(5)) {
+  if ((xTaskGetTickCount() - crtpExtPosCache.timestamp) < M2T(5))
+  {
     // Get the updated position from the mocap
     ext_pos.x = crtpExtPosCache.targetVal[crtpExtPosCache.activeSide].x;
     ext_pos.y = crtpExtPosCache.targetVal[crtpExtPosCache.activeSide].y;
@@ -181,6 +207,7 @@ bool getExtPosition(state_t *state)
     ext_pos.stdDev = 0.01;
     estimatorKalmanEnqueuePosition(&ext_pos);
 
+    state->attitude.yaw = crtpExtPosCache.yaw;
     return true;
   }
   return false;
@@ -223,9 +250,9 @@ void locSrvSendRangeFloat(uint8_t id, float range)
 }
 
 LOG_GROUP_START(ext_pos)
-  LOG_ADD(LOG_FLOAT, X, &ext_pos.x)
-  LOG_ADD(LOG_FLOAT, Y, &ext_pos.y)
-  LOG_ADD(LOG_FLOAT, Z, &ext_pos.z)
+LOG_ADD(LOG_FLOAT, X, &ext_pos.x)
+LOG_ADD(LOG_FLOAT, Y, &ext_pos.y)
+LOG_ADD(LOG_FLOAT, Z, &ext_pos.z)
 LOG_GROUP_STOP(ext_pos)
 
 PARAM_GROUP_START(locSrv)

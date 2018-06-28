@@ -31,7 +31,7 @@
  *
  * BIBTEX ENTRIES:
       @INPROCEEDINGS{MuellerHamerUWB2015,
-      author  = {Mueller, Mark W and Hamer, Michael and D’Andrea, Raffaello},
+      author  = {Mueller, Mark W and Hamer, Michael and Dâ€™Andrea, Raffaello},
       title   = {Fusing ultra-wideband range measurements with accelerometers and rate gyroscopes for quadrocopter state estimation},
       booktitle = {2015 IEEE International Conference on Robotics and Automation (ICRA)},
       year    = {2015},
@@ -41,7 +41,7 @@
       ISSN    = {1050-4729}}
 
       @ARTICLE{MuellerCovariance2016,
-      author={Mueller, Mark W and Hehn, Markus and D’Andrea, Raffaello},
+      author={Mueller, Mark W and Hehn, Markus and Dâ€™Andrea, Raffaello},
       title={Covariance Correction Step for Kalman Filtering with an Attitude},
       journal={Journal of Guidance, Control, and Dynamics},
       pages={1--7},
@@ -1254,9 +1254,9 @@ static void stateEstimatorExternalizeState(state_t *state, sensorData_t *sensors
   };
 
   // convert the new attitude into Euler YPR
-  float yaw = atan2f(2*(q[1]*q[2]+q[0]*q[3]) , q[0]*q[0] + q[1]*q[1] - q[2]*q[2] - q[3]*q[3]);
-  float pitch = asinf(-2*(q[1]*q[3] - q[0]*q[2]));
-  float roll = atan2f(2*(q[2]*q[3]+q[0]*q[1]) , q[0]*q[0] - q[1]*q[1] - q[2]*q[2] + q[3]*q[3]);
+  // float yaw = atan2f(2*(q[1]*q[2]+q[0]*q[3]) , q[0]*q[0] + q[1]*q[1] - q[2]*q[2] - q[3]*q[3]);
+  float pitch = asinf(-2 * (q[1] * q[3] - q[0] * q[2]));
+  float roll = atan2f(2 * (q[2] * q[3] + q[0] * q[1]), q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3]);
 
   // Save attitude, adjusted for the legacy CF2 body coordinate system
   state->attitude = (attitude_t){

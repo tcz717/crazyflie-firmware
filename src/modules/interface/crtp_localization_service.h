@@ -38,6 +38,12 @@ struct CrtpExtPosition
   float z; // in m
 } __attribute__((packed));
 
+struct CrtpExtPositionYaw
+{
+  struct CrtpExtPosition position;
+  float yaw; // in degree
+} __attribute__((packed));
+
 typedef enum
 {
   RANGE_STREAM_FLOAT      = 0,

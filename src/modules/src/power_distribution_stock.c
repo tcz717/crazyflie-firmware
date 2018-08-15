@@ -31,7 +31,7 @@
 
 #include "motors.h"
 
-static bool motorSetEnable = false;
+bool motorSetEnable = false;
 
 static struct {
   uint32_t m1;
@@ -40,7 +40,7 @@ static struct {
   uint32_t m4;
 } motorPower;
 
-static struct {
+struct {
   uint16_t m1;
   uint16_t m2;
   uint16_t m3;

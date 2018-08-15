@@ -1263,7 +1263,7 @@ static void stateEstimatorExternalizeState(state_t *state, sensorData_t *sensors
       .timestamp = tick,
       .roll = roll*RAD_TO_DEG,
       .pitch = -pitch*RAD_TO_DEG,
-      .yaw = yaw*RAD_TO_DEG
+      // .yaw = yaw*RAD_TO_DEG
   };
 
   // Save quaternion, hopefully one day this could be used in a better controller.

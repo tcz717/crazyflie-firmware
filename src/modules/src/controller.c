@@ -6,8 +6,15 @@
 #include "controller_pid.h"
 #include "controller_mellinger.h"
 
-#define DEFAULT_CONTROLLER ControllerTypePID
+#define DEFAULT_CONTROLLER ControllerTypeLQR
 static ControllerType currentController = ControllerTypeAny;
+
+extern void controllerRemoteInit(void);
+extern bool controllerRemoteTest(void);
+extern void controllerRemote(control_t *control, setpoint_t *setpoint,
+                   const sensorData_t *sensors,
+                   const state_t *state,
+                   const uint32_t tick);
 
 static void initController();
 
@@ -21,6 +28,7 @@ static ControllerFcns controllerFunctions[] = {
   {.init = 0, .test = 0, .update = 0}, // Any
   {.init = controllerPidInit, .test = controllerPidTest, .update = controllerPid},
   {.init = controllerMellingerInit, .test = controllerMellingerTest, .update = controllerMellinger},
+  {.init = controllerRemoteInit, .test = controllerRemoteTest, .update = controllerRemote},
 };
 
 
